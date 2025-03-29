@@ -1,5 +1,8 @@
 import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from '@angular/core';
 
+/*
+    Use adts as container for audio ?
+ */
 @Component({
     selector: 'app-h264',
     standalone: true,
@@ -9,19 +12,28 @@ import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from '@angular/
 })
 export class H264Component implements OnInit, AfterViewInit{
     @ViewChild("file") fileEL!: ElementRef<HTMLInputElement>;
-    @ViewChild("canvas") canvasEL!: ElementRef<HTMLCanvasElement>;
-    canvas!: HTMLCanvasElement;
+    @ViewChild("video") videoEL!: ElementRef<HTMLVideoElement>;
+
     file!: HTMLInputElement;
+    video!: HTMLVideoElement;
+
+    // @ts-ignore
+    readonly trackGenerator = new MediaStreamTrackGenerator({ kind: 'video' });
+    readonly defaultWriter = this.trackGenerator.writable.getWriter();
 
     readonly decoder = new VideoDecoder({
-        output: (frame) => {
-            this.canvas?.getContext("2d")?.drawImage(frame, 0, 0, this.canvas.width, this.canvas.height);
+        output: async (frame) => {
+         //   this.canvas?.getContext("2d")?.drawImage(frame, 0, 0, this.canvas.width, this.canvas.height);
+            await this.defaultWriter.write(frame);
             frame.close();
+            await this.defaultWriter.ready;
+           // this.defaultWriter.releaseLock();
         },
         error: (e) => console.warn(e.message),
     });
 
     process = async (data: Uint8Array, isKey: boolean): Promise<void> => {
+
         if (this.decoder.state !== "configured") {
             const config = {codec: "avc1.4d002a", optimizeForLatency: true};
             this.decoder.configure(config);
@@ -40,12 +52,14 @@ export class H264Component implements OnInit, AfterViewInit{
         const stream = file.stream();
         const reader = stream.getReader();
         const process = this.process;
+        const writer = this.defaultWriter;
 
         let buffer = new Uint8Array();
 
         let doneFirstPass = false;
         return reader.read().then(async function processChunk({done, value}): Promise<void> {
             if (done) {
+               // writer.releaseLock();
                 return; // process(buffer);
             } else {
                 buffer = new Uint8Array([...buffer, ...value]);
@@ -71,9 +85,11 @@ export class H264Component implements OnInit, AfterViewInit{
   }
 
   ngAfterViewInit(): void {
-    this.canvas = this.canvasEL.nativeElement;
     this.file = this.fileEL.nativeElement;
-    this.canvas.width = 1900;
-    this.canvas.height = 1024;
+    this.video = this.videoEL.nativeElement;
+    this.video.srcObject = new MediaStream([this.trackGenerator])
+      this.video.onloadedmetadata = () => {
+        this.video.play();
+      }
   }
 }
