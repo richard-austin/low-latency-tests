@@ -32,7 +32,7 @@ export class H264Component implements OnInit, AfterViewInit{
         error: (e) => console.warn(e.message),
     });
 
-    process = async (data: Uint8Array, isKey: boolean): Promise<void> => {
+    process = async (data: Uint8Array): Promise<void> => {
 
         if (this.decoder.state !== "configured") {
             const config = {codec: "avc1.4d002a", optimizeForLatency: true};
@@ -68,7 +68,7 @@ export class H264Component implements OnInit, AfterViewInit{
                     if (buffer[i] === 0 && buffer[i + 1] === 0 && buffer[i + 2] === 0 && buffer[i + 3] === 1 && (((buffer[i + 4] & 0x07) === 7) || doneFirstPass)) {
                         if (i !== start) {
                             const frame = buffer.slice(start, i);
-                            await process(frame, !doneFirstPass);
+                            await process(frame);
                             //doneFirstPass = true;
                         }
                         start = i;
@@ -89,7 +89,7 @@ export class H264Component implements OnInit, AfterViewInit{
     this.video = this.videoEL.nativeElement;
     this.video.srcObject = new MediaStream([this.trackGenerator])
       this.video.onloadedmetadata = () => {
-        this.video.play();
+        this.video.play().then();
       }
   }
 }
