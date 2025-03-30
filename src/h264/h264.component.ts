@@ -11,11 +11,12 @@ import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from '@angular/
     styleUrl: './h264.component.css'
 })
 export class H264Component implements OnInit, AfterViewInit{
-    @ViewChild("file") fileEL!: ElementRef<HTMLInputElement>;
+    @ViewChild("startButton") fileEL!: ElementRef<HTMLInputElement>;
     @ViewChild("video") videoEL!: ElementRef<HTMLVideoElement>;
 
     file!: HTMLInputElement;
     video!: HTMLVideoElement;
+    ws!: WebSocket;
 
     // @ts-ignore (MediaStreamTrackGenerator not in lib.dom.d.ts for some reason)
     readonly trackGenerator = new MediaStreamTrackGenerator({ kind: 'video' });
@@ -45,41 +46,57 @@ export class H264Component implements OnInit, AfterViewInit{
         this.decoder.decode(chunk);
     }
 
-    async loadFile(): Promise<void> {
-        // @ts-ignore
-        const file = this.file.files[0];
-        const stream = file.stream();
-        const reader = stream.getReader();
+    async start(): Promise<void> {
         const process = this.process;
         this.video.srcObject = new MediaStream([this.trackGenerator])
         this.video.onloadedmetadata = () => {
             this.video.play().then();
         }
 
+        this.ws = new WebSocket("/ws/stream?suuid=stream1");
+        this.ws.binaryType = 'arraybuffer';
+        this.ws.onmessage = (event: MessageEvent) => {
+            processChunk(event.data);
+        };
+
         let buffer = new Uint8Array();
 
-        let doneFirstPass = false;
-        return reader.read().then(async function processChunk({done, value}): Promise<void> {
-            if (done) {
-               // writer.releaseLock();
-                return; // process(buffer);
-            } else {
-                buffer = new Uint8Array([...buffer, ...value]);
-                let start = 0
-                for (let i = 0; i < buffer.length; i++) {
-                    if (buffer[i] === 0 && buffer[i + 1] === 0 && buffer[i + 2] === 0 && buffer[i + 3] === 1 && (((buffer[i + 4] & 0x07) === 7) || doneFirstPass)) {
-                        if (i !== start) {
-                            const frame = buffer.slice(start, i);
-                            await process(frame);
-                            //doneFirstPass = true;
-                        }
-                        start = i;
-                    }
-                }
-                buffer = buffer.slice(start);
-                return reader.read().then(processChunk);
+        let keyFrameReceived: boolean = false;
+        let keyFrameBuffers: Uint8Array[] = [];
+
+        // @ts-ignore
+        async function processChunk(value: ArrayBuffer): Promise<void> {
+            buffer = new Uint8Array(value);
+            const i = 0
+            const isStartFrame = (buffer[i] === 0 && buffer[i + 1] === 0 && buffer[i + 2] === 0 && buffer[i + 3] === 1);
+            const isKeyFrame = isStartFrame && (((buffer[i + 4] & 0x07) === 7));
+            if (isKeyFrame) {
+                keyFrameReceived = true;
+                keyFrameBuffers.push(buffer);
             }
-        });
+            else if(!isStartFrame && !isKeyFrame && keyFrameReceived)
+                    keyFrameBuffers.push(buffer);
+            else if (!isKeyFrame && isStartFrame && keyFrameReceived) {
+                if (keyFrameBuffers.length > 0) {
+                    let totalLength = 0;
+                    keyFrameBuffers.forEach((element: Uint8Array) => {
+                        totalLength += element.length;
+                    });
+                    let offset = 0;
+                    const mergedArray = new Uint8Array(totalLength);
+                    keyFrameBuffers.forEach((element: Uint8Array) => {
+                        mergedArray.set(element, offset);
+                        offset += element.length;
+                    });
+                    keyFrameBuffers = [];
+                    await process(mergedArray);
+                }
+                await process(buffer);
+                }
+
+            // buffer = buffer.slice(start);
+            //return reader.read().then(processChunk);
+        }
     }
 
   ngOnInit(): void {
