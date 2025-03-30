@@ -17,13 +17,12 @@ export class H264Component implements OnInit, AfterViewInit{
     file!: HTMLInputElement;
     video!: HTMLVideoElement;
 
-    // @ts-ignore
+    // @ts-ignore (MediaStreamTrackGenerator not in lib.dom.d.ts for some reason)
     readonly trackGenerator = new MediaStreamTrackGenerator({ kind: 'video' });
     readonly defaultWriter = this.trackGenerator.writable.getWriter();
 
     readonly decoder = new VideoDecoder({
         output: async (frame) => {
-         //   this.canvas?.getContext("2d")?.drawImage(frame, 0, 0, this.canvas.width, this.canvas.height);
             await this.defaultWriter.write(frame);
             frame.close();
             await this.defaultWriter.ready;
@@ -43,7 +42,7 @@ export class H264Component implements OnInit, AfterViewInit{
             type: (data[4] & 0x0f) === 7 ? "key" : "delta",
             data,
         });
-        return this.decoder.decode(chunk);
+        this.decoder.decode(chunk);
     }
 
     async loadFile(): Promise<void> {
@@ -52,7 +51,10 @@ export class H264Component implements OnInit, AfterViewInit{
         const stream = file.stream();
         const reader = stream.getReader();
         const process = this.process;
-        const writer = this.defaultWriter;
+        this.video.srcObject = new MediaStream([this.trackGenerator])
+        this.video.onloadedmetadata = () => {
+            this.video.play().then();
+        }
 
         let buffer = new Uint8Array();
 
@@ -87,9 +89,5 @@ export class H264Component implements OnInit, AfterViewInit{
   ngAfterViewInit(): void {
     this.file = this.fileEL.nativeElement;
     this.video = this.videoEL.nativeElement;
-    this.video.srcObject = new MediaStream([this.trackGenerator])
-      this.video.onloadedmetadata = () => {
-        this.video.play().then();
-      }
   }
 }
