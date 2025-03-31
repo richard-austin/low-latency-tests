@@ -11,7 +11,6 @@ import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from '@angular/
     styleUrl: './h264.component.css'
 })
 export class H264Component implements OnInit, AfterViewInit{
-    @ViewChild("startButton") fileEL!: ElementRef<HTMLInputElement>;
     @ViewChild("video") videoEL!: ElementRef<HTMLVideoElement>;
 
     file!: HTMLInputElement;
@@ -19,7 +18,6 @@ export class H264Component implements OnInit, AfterViewInit{
     // @ts-ignore (MediaStreamTrackGenerator not in lib.dom.d.ts for some reason)
     readonly trackGenerator = new MediaStreamTrackGenerator({ kind: 'video' });
     readonly defaultWriter = this.trackGenerator.writable.getWriter();
-
 
     async start(): Promise<void> {
     //    const process = this.process;
@@ -47,7 +45,6 @@ export class H264Component implements OnInit, AfterViewInit{
   }
 
   ngAfterViewInit(): void {
-    this.file = this.fileEL.nativeElement;
     this.video = this.videoEL.nativeElement;
   }
 }
