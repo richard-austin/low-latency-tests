@@ -27,7 +27,7 @@ setupDecoder();
 let processMessage = async (data: Uint8Array): Promise<void> => {
  // let processStart = performance.now();
   if (decoder.state !== "configured") {
-    const config = {codec: "avc1.4d002a", optimizeForLatency: true};
+    const config = {codec: "avc1.640028", optimizeForLatency: true};
     decoder.configure(config);
   }
   const chunk = new EncodedVideoChunk({
