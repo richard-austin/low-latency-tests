@@ -11,7 +11,9 @@ let audioDecoder = new AudioDecoder({
     postMessage(frame);
     frame.close();
   },
-  error: console.warn,
+  error: (e: DOMException) => {
+     console.warn("Audio decoder: "+e.message);
+  },
 });
 
 const config = {
@@ -23,27 +25,46 @@ const config = {
 
 function setUpWSConnection(url: string) {
   audioDecoder.configure(config);
+  let framesToMiss = 12;
 
   let ws = new WebSocket(url);
   ws.binaryType = 'arraybuffer';
+  ws.onerror = (ev) => {
+    console.error("An error occurred with the audio feeder websocket connection")
+  }
+
+  ws.onclose = (ev) => {
+    console.error("The audio feed websocket was closed: " + ev.reason)
+  }
+
+  let timeout = setTimeout(() => {
+    timeoutRestart();
+  }, 6000)
+
+  const resetTimeout = () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      timeoutRestart();
+    }, 6000)
+  }
+  const timeoutRestart = () => {
+    console.error("Audio feed from websocket has stopped, restarting ...");
+    setUpWSConnection(url);
+  }
+
   ws.onmessage = async (event: MessageEvent) => {
     // @ts-ignore
     const eac = new EncodedAudioChunk({
       type: 'key',
       timestamp: 0,
-      duration: 1000,
+      duration: 0,
       data: event.data,
     });
-    await audioDecoder.decode(eac)
+    if(framesToMiss > 0)
+      --framesToMiss;
+    else
+      await audioDecoder.decode(eac)
+    resetTimeout();
   //  processChunk(event.data).then();
   };
-}
-
-  // @ts-ignore
-async function processChunk(value: AudioData): Promise<void> {
-    //  let processChunkStart = performance.now();
-    postMessage(value)
-    // console.log("processChunk time: "+(performance.now()-processChunkStart))
-    // buffer = buffer.slice(start);
-    //return reader.read().then(processChunk);
 }
