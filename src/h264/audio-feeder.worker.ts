@@ -19,8 +19,8 @@ let audioDecoder = new AudioDecoder({
 const config = {
   numberOfChannels: 1,
   sampleRate: 8000, // Chrome hardcodes to 48000
-  codec: 'pcm-s16',
-  bitrate: 64000,
+  codec: 'alaw',
+  bitrate: 48000,
 };
 
 function setUpWSConnection(url: string) {

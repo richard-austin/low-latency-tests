@@ -1,7 +1,5 @@
 /// <reference lib="webworker" />
 
-import {Subscription, timer} from "rxjs";
-
 addEventListener('message', ({data}) => {
   setUpWebsocketConnection(data.url);
 });
