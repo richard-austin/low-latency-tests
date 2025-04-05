@@ -1,5 +1,8 @@
-import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from '@angular/core';
+import {AfterViewInit, Component, ElementRef, Inject, OnInit, Renderer2, ViewChild} from '@angular/core';
+import {DOCUMENT} from "@angular/common";
 
+declare function initMSTG(): void;
+initMSTG();
 /*
     Use adts as container for audio ?
  */
@@ -10,20 +13,24 @@ import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from '@angular/
     templateUrl: './h264.component.html',
     styleUrl: './h264.component.css'
 })
-export class H264Component implements OnInit, AfterViewInit{
+export class H264Component implements OnInit, AfterViewInit {
     @ViewChild("video") videoEL!: ElementRef<HTMLVideoElement>;
 
     file!: HTMLInputElement;
     video!: HTMLVideoElement;
+
     // @ts-ignore (MediaStreamTrackGenerator not in lib.dom.d.ts for some reason)
-    readonly videoTrack = new MediaStreamTrackGenerator({ kind: 'video' });
+    readonly videoTrack = new MediaStreamTrackGenerator({kind: 'video'});
 
     // @ts-ignore
-    readonly audioTrack = new MediaStreamTrackGenerator({kind: 'audio'});
+    readonly audioTrack = new window.MediaStreamTrackGenerator({kind: 'audio'});
 
     readonly videoWriter = this.videoTrack.writable.getWriter();
     readonly audioWriter = this.audioTrack.writable.getWriter();
+    // @ts-ignore
+    constructor(private renderer: Renderer2, @Inject(DOCUMENT) private _document) {
 
+    }
     async start(): Promise<void> {
         this.video.srcObject = new MediaStream([this.videoTrack, this.audioTrack])
         this.video.onloadedmetadata = () => {
@@ -44,7 +51,7 @@ export class H264Component implements OnInit, AfterViewInit{
                 audioWorker.onmessage = async ({data, type}) => {
                     if (!this.video.paused)
                         this.audioWriter.write(data);
-                   // await this.audioWriter.ready;
+                    // await this.audioWriter.ready;
                 }
             }
             audioWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1a"})
@@ -54,11 +61,18 @@ export class H264Component implements OnInit, AfterViewInit{
         }
     }
 
-  ngOnInit(): void {
- //    console.log("H264 component");
-  }
+    ngOnInit(): void {
+        // const s = this.renderer.createElement("script");
+        // s.type = "text/text";
+        // s.src = "http://localhost:4200/mediastreamtrackgenerator.js";
+        // this.renderer.appendChild(this._document.body, s);
+        //
 
-  ngAfterViewInit(): void {
-    this.video = this.videoEL.nativeElement;
-  }
+
+        //    console.log("H264 component");
+    }
+
+    ngAfterViewInit(): void {
+        this.video = this.videoEL.nativeElement;
+    }
 }

@@ -29,7 +29,7 @@
             "styles": [
               "src/styles.css"
             ],
-            "scripts": [],
+            "scripts": ["public/mediastreamtrackgenerator.js"],
             "webWorkerTsConfig": "tsconfig.worker.json"
           },
           "configurations": {
@@ -88,7 +88,7 @@
             "styles": [
               "src/styles.css"
             ],
-            "scripts": [],
+            "scripts": ["./public/mediastreamtrackgenerator.js"],
             "webWorkerTsConfig": "tsconfig.worker.json"
           }
         }
