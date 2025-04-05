@@ -25,11 +25,13 @@ function setupDecoder(): void {
 setupDecoder();
 
 let isHEVC: boolean = false;
+let started = false;
+let codec = ""; // https://wiki.whatwg.org/wiki/Video_type_parameters
 
 let processMessage = async (data: Uint8Array): Promise<void> => {
   // let processStart = performance.now();
   if (decoder.state !== "configured") {
-    const config = {codec: (isHEVC ? "hvc1.1.4.L16.B0" : "avc1.640028"), optimizeForLatency: true};
+    const config = {codec: codec, optimizeForLatency: true};
     decoder.configure(config);
   }
   const chunk = new EncodedVideoChunk({
@@ -45,7 +47,19 @@ function setUpWebsocketConnection(url: string) {
   let ws = new WebSocket(url);
   ws.binaryType = 'arraybuffer';
   ws.onmessage = (event: MessageEvent) => {
-    processChunk(event.data).then();
+    if (!started) {
+      let array = new Uint8Array(event.data)
+      if (array[0] === 9) {
+        let decoded_arr = array.slice(1);
+        codec = Utf8ArrayToStr(decoded_arr);
+        console.log('first packet with codec data: ' + codec);
+        started = true;
+      }
+      else
+        console.error("No codec was found")
+    } else {
+      processChunk(event.data).then();
+    }
   };
 
   ws.onerror = (ev) => {
@@ -81,11 +95,11 @@ function setUpWebsocketConnection(url: string) {
     resetTimeout();
     buffer = new Uint8Array(value);
     const i = 0
-    const isStartFrame = (buffer[i] === 0 && buffer[i + 1] === 0 && buffer[i + 2] === 0 && buffer[i + 3] === 1) ||
-        (buffer[0] === 0 && buffer[1] === 0 && buffer[2] === 1);
-    isHEVC = buffer[2] === 1;
+    const isStartFrame = (buffer[i] === 0 && buffer[i + 1] === 0 && buffer[i + 2] === 0 && buffer[i + 3] === 1) ||  // TODO: handle 4 preceding zeros
+        (buffer[0] === 0 && buffer[1] === 0 && buffer[2] === 1);  // TODO: make sure there are no addition hevc header specs to handle.
+    isHEVC = buffer[2] === 1;  // TODO: Ensure I'm using a definitive test for HEVC
 
-    const isKeyFrame = !isHEVC ? isStartFrame && (((buffer[i + 4] & 0x07) === 7)) : buffer[3] === 0x40;
+    const isKeyFrame = !isHEVC ? isStartFrame && (((buffer[i + 4] & 0x07) === 7)) : buffer[3] === 0x40;  // TODO: check this thoroughly
 
     if (isKeyFrame)
       firstKeyFrameReceived = true;
@@ -123,4 +137,16 @@ function setUpWebsocketConnection(url: string) {
       await processMessage(mergedArray);
     }
   }
+}
+
+function Utf8ArrayToStr(array: Uint8Array): string {
+  let out, i, len;
+  out = '';
+  len = array.length;
+  i = 0;
+  while (i < len) {
+    out += String.fromCharCode(array[i]);
+    ++i;
+  }
+  return out;
 }

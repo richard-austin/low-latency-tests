@@ -38,7 +38,7 @@ export class H264Component implements OnInit, AfterViewInit{
                 await this.videoWriter.write(data);
                 await this.videoWriter.ready;
             };
-            videoWorker.postMessage({url: "/ws/stream?suuid=stream1"})
+            videoWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1"})
             const audioWorker = new Worker(new URL('audio-feeder.worker', import.meta.url));
             this.video.onplaying = () => {
                 audioWorker.onmessage = async ({data, type}) => {
@@ -47,7 +47,7 @@ export class H264Component implements OnInit, AfterViewInit{
                    // await this.audioWriter.ready;
                 }
             }
-            audioWorker.postMessage({url: "/ws/stream?suuid=stream1a"})
+            audioWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1a"})
         } else {
             // Web workers are not supported in this environment.
             // You should add a fallback so that your program still executes correctly.
