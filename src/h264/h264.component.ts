@@ -41,15 +41,19 @@ export class H264Component implements OnInit, AfterViewInit {
             // Create a new media feeder web worker
             const videoWorker = new Worker(new URL('./video-feeder.worker', import.meta.url));
             videoWorker.onmessage = async ({data, type}) => {
-                await videoWriter.write(data);
-                await videoWriter.ready;
+                // if (!this.video.paused) {
+                    await videoWriter.write(data);
+                    await videoWriter.ready;
+                // }
             };
             videoWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1"})
             const audioWorker = new Worker(new URL('audio-feeder.worker', import.meta.url));
             this.video.onplaying = () => {
                 audioWorker.onmessage = async ({data, type}) => {
-                    if (!this.video.paused)
-                        audioWriter.write(data);
+                    if (!this.video.paused) {
+                        await audioWriter.write(data);
+                        await audioWriter.ready;
+                    }
                     // await this.audioWriter.ready;
                 }
             }

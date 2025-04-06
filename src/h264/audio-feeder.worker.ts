@@ -20,7 +20,7 @@ const config = {
   numberOfChannels: 1,
   sampleRate: 8000, // Chrome hardcodes to 48000
   codec: 'alaw',
-  bitrate: "64K",
+  bitrate: "32K",
 };
 
 function setUpWSConnection(url: string) {
