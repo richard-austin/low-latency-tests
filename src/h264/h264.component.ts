@@ -1,8 +1,10 @@
-import {AfterViewInit, Component, ElementRef, Inject, OnInit, Renderer2, ViewChild} from '@angular/core';
-import {DOCUMENT} from "@angular/common";
+import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from '@angular/core';
 
 declare function initMSTG(): void;
-initMSTG();
+// MediaStreamTrackGenerator not in lib.dom.d.ts
+declare let MediaStreamTrackGenerator: any
+
+initMSTG();  // Set up MediaStreamTrackGenerator for platforms which don't support it
 /*
     Use adts as container for audio ?
  */
@@ -19,20 +21,17 @@ export class H264Component implements OnInit, AfterViewInit {
     file!: HTMLInputElement;
     video!: HTMLVideoElement;
 
-    // @ts-ignore (MediaStreamTrackGenerator not in lib.dom.d.ts for some reason)
-    readonly videoTrack = new MediaStreamTrackGenerator({kind: 'video'});
-
-    // @ts-ignore
-    readonly audioTrack = new window.MediaStreamTrackGenerator({kind: 'audio'});
-
-    readonly videoWriter = this.videoTrack.writable.getWriter();
-    readonly audioWriter = this.audioTrack.writable.getWriter();
-    // @ts-ignore
-    constructor(private renderer: Renderer2, @Inject(DOCUMENT) private _document) {
-
-    }
     async start(): Promise<void> {
-        this.video.srcObject = new MediaStream([this.videoTrack, this.audioTrack])
+
+        const videoTrack = new MediaStreamTrackGenerator({kind: 'video'});
+
+        // @ts-ignore
+        const audioTrack = new window.MediaStreamTrackGenerator({kind: 'audio'});
+
+        const videoWriter = videoTrack.writable.getWriter();
+        const audioWriter = audioTrack.writable.getWriter();
+
+        this.video.srcObject = new MediaStream([videoTrack, audioTrack])
         this.video.onloadedmetadata = () => {
             this.video.play().then();
         }
@@ -42,15 +41,15 @@ export class H264Component implements OnInit, AfterViewInit {
             // Create a new media feeder web worker
             const videoWorker = new Worker(new URL('./video-feeder.worker', import.meta.url));
             videoWorker.onmessage = async ({data, type}) => {
-                await this.videoWriter.write(data);
-                await this.videoWriter.ready;
+                await videoWriter.write(data);
+                await videoWriter.ready;
             };
             videoWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1"})
             const audioWorker = new Worker(new URL('audio-feeder.worker', import.meta.url));
             this.video.onplaying = () => {
                 audioWorker.onmessage = async ({data, type}) => {
                     if (!this.video.paused)
-                        this.audioWriter.write(data);
+                        audioWriter.write(data);
                     // await this.audioWriter.ready;
                 }
             }

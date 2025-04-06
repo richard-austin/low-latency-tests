@@ -1,9 +1,8 @@
 initMSTG = function () {
     if (!window.MediaStreamTrackGenerator) {
-        console.log("I'm here!");
         window.MediaStreamTrackGenerator = class MediaStreamTrackGenerator {
             constructor({kind}) {
-                if (kind == "video") {
+                if (kind === "video") {
                     const canvas = document.createElement("canvas");
                     const ctx = canvas.getContext('2d', {desynchronized: true});
                     const track = canvas.captureStream().getVideoTracks()[0];
@@ -16,7 +15,7 @@ initMSTG = function () {
                         }
                     });
                     return track;
-                } else if (kind == "audio") {
+                } else if (kind === "audio") {
                     const ac = new AudioContext;
                     const dest = ac.createMediaStreamDestination();
                     const [track] = dest.stream.getAudioTracks();

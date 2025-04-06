@@ -36,7 +36,7 @@ let processMessage = async (data: Uint8Array): Promise<void> => {
   }
   const chunk = new EncodedVideoChunk({
     timestamp: (performance.now()) * 1000,
-    type: (data[4] & 0x0f) === 7 ? "key" : "delta",
+    type: (isHEVC ? (data[3] === 0x40) : ((data[4] & 0x0f) === 7)) ? "key" : "delta",
     data: data,
   });
   decoder.decode(chunk);
