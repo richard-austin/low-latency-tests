@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from '@angular/core';
+import {AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
 
 declare function initMSTG(): void;
 // MediaStreamTrackGenerator not in lib.dom.d.ts
@@ -15,14 +15,15 @@ initMSTG();  // Set up MediaStreamTrackGenerator for platforms which don't suppo
     templateUrl: './h264.component.html',
     styleUrl: './h264.component.css'
 })
-export class H264Component implements OnInit, AfterViewInit {
+export class H264Component implements OnInit, AfterViewInit, OnDestroy {
     @ViewChild("video") videoEL!: ElementRef<HTMLVideoElement>;
 
     file!: HTMLInputElement;
     video!: HTMLVideoElement;
+    videoWorker!: Worker;
+    audioWorker!:Worker;
 
     async start(): Promise<void> {
-
         const videoTrack = new MediaStreamTrackGenerator({kind: 'video'});
 
         // @ts-ignore
@@ -39,25 +40,31 @@ export class H264Component implements OnInit, AfterViewInit {
 
         if (typeof Worker !== 'undefined') {
             // Create a new media feeder web worker
-            const videoWorker = new Worker(new URL('./video-feeder.worker', import.meta.url));
-            videoWorker.onmessage = async ({data, type}) => {
-                // if (!this.video.paused) {
+            this.videoWorker = new Worker(new URL('./video-feeder.worker', import.meta.url));
+            this.videoWorker.onmessage = async ({data, type}) => {
+                if (data.closed) {
+                    console.log("Terminating the video worker");
+                    this.videoWorker.terminate();
+                } else// if (!this.video.paused) {
                     await videoWriter.write(data);
                     await videoWriter.ready;
-                // }
+                //    }
             };
-            videoWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1"})
-            const audioWorker = new Worker(new URL('audio-feeder.worker', import.meta.url));
+            this.videoWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1"})
+            this.audioWorker = new Worker(new URL('audio-feeder.worker', import.meta.url));
             this.video.onplaying = () => {
-                audioWorker.onmessage = async ({data, type}) => {
-                    if (!this.video.paused) {
+                this.audioWorker.onmessage = async ({data, type}) => {
+                    if (data.closed) {
+                        console.log("Terminating the audio worker");
+                        this.audioWorker.terminate();
+                    } else if (!this.video.paused) {
                         await audioWriter.write(data);
                         await audioWriter.ready;
                     }
                     // await this.audioWriter.ready;
                 }
             }
-            audioWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1a"})
+            this.audioWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1a"})
         } else {
             // Web workers are not supported in this environment.
             // You should add a fallback so that your program still executes correctly.
@@ -77,5 +84,10 @@ export class H264Component implements OnInit, AfterViewInit {
 
     ngAfterViewInit(): void {
         this.video = this.videoEL.nativeElement;
+    }
+
+    ngOnDestroy() {
+        this.videoWorker.postMessage({close: true});
+        this.audioWorker.postMessage(({close: true}));
     }
 }

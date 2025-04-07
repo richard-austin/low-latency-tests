@@ -2,9 +2,14 @@
 
 let videoFeeder!:VideoFeeder;
 addEventListener('message', ({data}) => {
-  videoFeeder = new VideoFeeder(data.url)
-  videoFeeder.setUpWebsocketConnection();
-  videoFeeder.setupDecoder();
+    if(data.url) {
+        videoFeeder = new VideoFeeder(data.url)
+        videoFeeder.setUpWebsocketConnection();
+        videoFeeder.setupDecoder();
+    }
+    else if(data.close && videoFeeder) {
+        videoFeeder.close()
+    }
 });
 
 class VideoFeeder {
@@ -16,7 +21,8 @@ class VideoFeeder {
     bufferInUse = false;
     timeout!: NodeJS.Timeout;
     url!: string;
-
+    ws!: WebSocket;
+    
     constructor(url: string) {
         this.url = url;
     }
@@ -55,9 +61,9 @@ class VideoFeeder {
     }
 
     setUpWebsocketConnection() {
-        let ws = new WebSocket(this.url);
-        ws.binaryType = 'arraybuffer';
-        ws.onmessage = (event: MessageEvent) => {
+        this.ws = new WebSocket(this.url);
+        this.ws.binaryType = 'arraybuffer';
+        this.ws.onmessage = (event: MessageEvent) => {
             if (!this.started) {
                 let array = new Uint8Array(event.data)
                 if (array[0] === 9) {
@@ -72,12 +78,13 @@ class VideoFeeder {
             }
         };
 
-        ws.onerror = (ev) => {
+        this.ws.onerror = (ev) => {
             console.error("An error occurred with the video feeder websocket connection")
         }
 
-        ws.onclose = (ev) => {
-            console.error("The video feed websocket was closed: " + ev.reason)
+        this.ws.onclose = (ev) => {
+            postMessage({closed: true})
+            console.info("The video feed websocket was closed: " + ev.reason)
         }
 
         this.timeout = setTimeout(() => {
@@ -85,7 +92,9 @@ class VideoFeeder {
         }, 6000)
 
     }
-
+    close() {
+        this.ws.close()
+    }
     resetTimeout() {
         clearTimeout(this.timeout);
         this.timeout = setTimeout(() => {
