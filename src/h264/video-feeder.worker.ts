@@ -26,7 +26,7 @@ class VideoFeeder {
     private isHEVC: boolean = false;
     private started = false;
     private codec = ""; // https://wiki.whatwg.org/wiki/Video_type_parameters
-    
+
     constructor(url: string) {
         this.url = url;
     }
@@ -126,16 +126,46 @@ class VideoFeeder {
         }
     }
 
+    readonly hevcStart:Uint8Array = new Uint8Array([0x00,0x00,0x01]);
+    readonly h264Start:Uint8Array = new Uint8Array([0x00,0x00,0x00,0x01]);
+    readonly h264KeyFrame1:Uint8Array = new Uint8Array([0x67,0x64]);
+    readonly h264KeyFrame2:Uint8Array = new Uint8Array([0x27,0x64]);
+    readonly h264KeyFrame3:Uint8Array = new Uint8Array([0x61,0x88]);
+
+    isStartFrame(buffer:Uint8Array):boolean {
+        let startFrame: boolean = this.h264Start.every((value, index) => value === buffer[index]);
+        if(!startFrame) {// Not h264, try hevc
+            startFrame = this.hevcStart.every((value, index) => value === buffer[index]);
+            this.isHEVC = startFrame;
+        }
+        return startFrame;
+    }
+
+    /**
+     * isKeyFrame: Detects h264 and hevc keyframes. isStartFrame must be called before the first use of this.
+     * @param buffer Encoded h264 or hevc video block.
+     */
+    isKeyFrame(buffer:Uint8Array):boolean {
+        if(this.isHEVC) {
+            const byte = (buffer[3] >> 1) & 0x3f;
+            return byte === 0x19 || byte === 0x20;
+        } else {
+            let isKeyFrame = this.h264KeyFrame1.every((value, index) => value === buffer[index+4]);
+            if(!isKeyFrame)
+                isKeyFrame = this.h264KeyFrame2.every((value, index) => value === buffer[index+4]);
+            if(!isKeyFrame)
+                isKeyFrame = this.h264KeyFrame3.every((value, index) => value === buffer[index+4]);
+            return isKeyFrame;
+        }
+    }
+
     async processChunk(value: ArrayBuffer): Promise<void> {
         //  let processChunkStart = performance.now();
         this.resetTimeout();
         this.buffer = new Uint8Array(value);
-        const i = 0
-        const isStartFrame = (this.buffer[i] === 0 && this.buffer[i + 1] === 0 && this.buffer[i + 2] === 0 && this.buffer[i + 3] === 1) ||  // TODO: handle 4 preceding zeros
-            (this.buffer[0] === 0 && this.buffer[1] === 0 && this.buffer[2] === 1);  // TODO: make sure there are no addition hevc header specs to handle.
-        this.isHEVC = this.buffer[2] === 1;  // TODO: Ensure I'm using a definitive test for HEVC
+        const isStartFrame = this.isStartFrame(this.buffer);
 
-        const isKeyFrame = !this.isHEVC ? isStartFrame && (((this.buffer[i + 4] & 0x07) === 7)) : this.buffer[3] === 0x40;  // TODO: check this thoroughly
+        const isKeyFrame = this.isKeyFrame(this.buffer);
 
         if (isKeyFrame)
             this.firstKeyFrameReceived = true;
