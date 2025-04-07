@@ -22,7 +22,7 @@ class VideoFeeder {
     private timeout!: NodeJS.Timeout;
     private readonly url!: string;
     private ws!: WebSocket;
-    private noRestart: boolean = true;
+    private noRestart: boolean = false;
     private isHEVC: boolean = false;
     private started = false;
     private codec = ""; // https://wiki.whatwg.org/wiki/Video_type_parameters
@@ -61,6 +61,7 @@ class VideoFeeder {
     }
 
     setUpWebsocketConnection() {
+        this.isHEVC = false;
         this.ws = new WebSocket(this.url);
         this.ws.binaryType = 'arraybuffer';
         this.ws.onmessage = (event: MessageEvent) => {
@@ -83,7 +84,7 @@ class VideoFeeder {
         }
 
         this.ws.onclose = (ev) => {
-            if(!this.noRestart)
+            if(this.noRestart)
                 postMessage({closed: true})
             console.info("The video feed websocket was closed: " + ev.reason)
         }
@@ -94,7 +95,7 @@ class VideoFeeder {
 
     }
     close() {
-        this.noRestart = false;
+        this.noRestart = true;
         this.ws.close()
     }
     resetTimeout() {
@@ -106,6 +107,7 @@ class VideoFeeder {
 
     timeoutRestart() {
         console.error("Video feed from websocket has stopped, restarting ...");
+        this.ws.close();
         this.setUpWebsocketConnection();
     }
 
