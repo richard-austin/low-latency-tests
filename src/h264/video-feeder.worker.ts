@@ -13,15 +13,19 @@ addEventListener('message', ({data}) => {
 });
 
 class VideoFeeder {
-    decoder!: VideoDecoder;
-    firstKeyFrameReceived: boolean = false;
-    buffer = new Uint8Array();
+    private decoder!: VideoDecoder;
+    private firstKeyFrameReceived: boolean = false;
+    private buffer = new Uint8Array();
 
-    largeBuffers: Uint8Array[] = [];
-    bufferInUse = false;
-    timeout!: NodeJS.Timeout;
-    url!: string;
-    ws!: WebSocket;
+    private largeBuffers: Uint8Array[] = [];
+    private bufferInUse = false;
+    private timeout!: NodeJS.Timeout;
+    private readonly url!: string;
+    private ws!: WebSocket;
+    private noRestart: boolean = true;
+    private isHEVC: boolean = false;
+    private started = false;
+    private codec = ""; // https://wiki.whatwg.org/wiki/Video_type_parameters
     
     constructor(url: string) {
         this.url = url;
@@ -40,10 +44,6 @@ class VideoFeeder {
             },
         });
     }
-
-    isHEVC: boolean = false;
-    started = false;
-    codec = ""; // https://wiki.whatwg.org/wiki/Video_type_parameters
 
     processMessage = async (data: Uint8Array): Promise<void> => {
         // let processStart = performance.now();
@@ -83,7 +83,8 @@ class VideoFeeder {
         }
 
         this.ws.onclose = (ev) => {
-            postMessage({closed: true})
+            if(!this.noRestart)
+                postMessage({closed: true})
             console.info("The video feed websocket was closed: " + ev.reason)
         }
 
@@ -93,6 +94,7 @@ class VideoFeeder {
 
     }
     close() {
+        this.noRestart = false;
         this.ws.close()
     }
     resetTimeout() {

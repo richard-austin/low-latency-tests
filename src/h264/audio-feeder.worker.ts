@@ -3,8 +3,8 @@
 let audioFeeder: AudioFeeder;
 addEventListener('message', ({ data }) => {
   if(data.url) {
-    audioFeeder = new AudioFeeder();
-    audioFeeder.setUpWSConnection(data.url);
+    audioFeeder = new AudioFeeder(data.url);
+    audioFeeder.setUpWSConnection();
   }
   else if(data.close && audioFeeder)
     audioFeeder.close();
@@ -12,7 +12,7 @@ addEventListener('message', ({ data }) => {
 
 class AudioFeeder {
 // @ts-ignore
-  audioDecoder = new AudioDecoder({
+  private audioDecoder = new AudioDecoder({
     // @ts-ignore
     output: async (frame: AudioData) => {
       postMessage(frame);
@@ -23,23 +23,25 @@ class AudioFeeder {
     },
   });
 
-  readonly config = {
+  private readonly config = {
     numberOfChannels: 1,
-    sampleRate: 8000, // Chrome hardcodes to 48000
+    sampleRate: 48000, // Chrome hardcodes to 48000
     codec: 'alaw',
-    bitrate: "32K",
+    bitrate: "64K",
   };
 
-  url!:string;
-  timeout!:NodeJS.Timeout;
-  ws!: WebSocket;
-
-  setUpWSConnection(url: string) {
+  private readonly url!:string;
+  private timeout!:NodeJS.Timeout;
+  private ws!: WebSocket;
+  private noRestart: boolean = true;
+  constructor(url: string) {
     this.url = url;
+  }
+  setUpWSConnection() {
     this.audioDecoder.configure(this.config);
     let framesToMiss = 12;
 
-    this.ws = new WebSocket(url);
+    this.ws = new WebSocket(this.url);
     this.ws.binaryType = 'arraybuffer';
 
     this.ws.onerror = (ev) => {
@@ -47,21 +49,22 @@ class AudioFeeder {
     }
 
     this.ws.onclose = (ev) => {
-      postMessage({closed: true})
+      if(!this.noRestart)
+        postMessage({closed: true})
       console.info("The audio feed websocket was closed: " + ev.reason);
-      clearTimeout(this.timeout);
+     // clearTimeout(this.timeout);
     }
 
     this.timeout = setTimeout(() => {
       this.timeoutRestart();
-    }, 6000)
+    }, 6000);
 
     this.ws.onmessage = async (event: MessageEvent) => {
       // @ts-ignore
       const eac = new EncodedAudioChunk({
         type: 'key',
         timestamp: 100,
-        duration: 10000,
+        duration: 1000000,
         data: event.data,
       });
       if (framesToMiss > 0)
@@ -79,12 +82,15 @@ class AudioFeeder {
     }, 6000)
   }
 
-  timeoutRestart = () => {
+  timeoutRestart(){
     console.error("Audio feed from websocket has stopped, restarting ...");
-    this.setUpWSConnection(this.url);
+    if(this.ws)
+      this.ws.close();
+    this.setUpWSConnection();
   }
 
   close() {
+    this.noRestart = false;
     this.ws.close()
   }
 }
