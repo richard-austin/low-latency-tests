@@ -6,7 +6,7 @@ declare let MediaStreamTrackGenerator: any
 
 initMSTG();  // Set up MediaStreamTrackGenerator for platforms which don't support it
 /*
-    Use adts as container for audio ?
+    Investigate error (console) CanvasRenderingContext2D.drawImage: Passed-in video frame is "broken"
  */
 @Component({
     selector: 'app-h264',
@@ -45,10 +45,10 @@ export class H264Component implements OnInit, AfterViewInit, OnDestroy {
                 if (data.closed) {
                     console.log("Terminating the video worker");
                     this.videoWorker.terminate();
-                } else// if (!this.video.paused) {
+                } else { // if (!this.video.paused) {
                     await videoWriter.write(data);
                     await videoWriter.ready;
-                //    }
+                }
             };
             this.videoWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1"})
             this.audioWorker = new Worker(new URL('audio-feeder.worker', import.meta.url));
@@ -61,7 +61,6 @@ export class H264Component implements OnInit, AfterViewInit, OnDestroy {
                         await audioWriter.write(data);
                         await audioWriter.ready;
                     }
-                    // await this.audioWriter.ready;
                 }
             }
             this.audioWorker.postMessage({url: "/ws/stream?suuid=cam1-stream1a"})
@@ -76,10 +75,6 @@ export class H264Component implements OnInit, AfterViewInit, OnDestroy {
         // s.type = "text/text";
         // s.src = "http://localhost:4200/mediastreamtrackgenerator.js";
         // this.renderer.appendChild(this._document.body, s);
-        //
-
-
-        //    console.log("H264 component");
     }
 
     ngAfterViewInit(): void {

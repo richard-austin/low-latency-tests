@@ -107,8 +107,11 @@ class VideoFeeder {
 
     timeoutRestart() {
         console.error("Video feed from websocket has stopped, restarting ...");
-        this.ws.close();
-        this.setUpWebsocketConnection();
+        if(this.ws)
+            this.ws.close();
+        setTimeout(() => {
+            this.setUpWebsocketConnection();
+        }, 1000)
     }
 
     async putLargeFrames(): Promise<void> {
@@ -179,6 +182,10 @@ class VideoFeeder {
             // If the length is the maximum packet size, put into the large buffers array to append
             //  together for processing by the decoder
             if (value.byteLength >= 32767)
+                /**
+                    TODO: Need to find the actual packet length as this will fail if a camera has a
+                       shorter max packet length than 32K, or if multiple packets are conjoined.
+                 **/
                 this.bufferInUse = true;
             if (this.bufferInUse) {
                 this.largeBuffers.push(this.buffer);

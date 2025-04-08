@@ -86,7 +86,9 @@ class AudioFeeder {
     console.error("Audio feed from websocket has stopped, restarting ...");
     if(this.ws)
       this.ws.close();
-    this.setUpWSConnection();
+    setTimeout(() => {
+      this.setUpWSConnection();
+    }, 1000);
   }
 
   close() {
