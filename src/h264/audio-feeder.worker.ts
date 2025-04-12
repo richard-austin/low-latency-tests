@@ -25,7 +25,7 @@ class AudioFeeder {
 
   private readonly config = {
     numberOfChannels: 1,
-    sampleRate: 48000, // Chrome hardcodes to 48000
+    sampleRate: 48000, // Firefox hardcodes to 48000
     codec: 'alaw',
     bitrate: "64K",
   };
